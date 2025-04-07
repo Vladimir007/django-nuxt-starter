@@ -17,6 +17,10 @@
     $ ./bin/build.sh
     ```
    Containers will also be started after the command.
+5. Create SuperUser
+   ```shell
+   $ ./bin/manage.sh createsuperuser
+   ```
 
 ## 2. Development deployment
 1. Create `.env` file at the root (from `.env.dev`).
@@ -28,8 +32,9 @@
     ```
 3. Migrate database:
     ```shell
-    $ ./bin/manage.sh migrate --noinput
+    $ ./bin/manage.sh migrate
     $ ./bin/manage.sh createcachetable
+    $ ./bin/manage.sh createsuperuser
     ```
 4. Enable periodic update (optional):
     ```shell
@@ -41,7 +46,7 @@
 $ ./bin/down.sh
 ```
 
-## 4 Remove DB volume (containers should be stopped)
+## 4. Remove DB volume (containers should be stopped)
 
 Find PostgreSQL volume for the project (starts with $COMPOSE_PROJECT_NAME from .env)
 "${COMPOSE_PROJECT_NAME}_pgdata_dev" for development mode or "${COMPOSE_PROJECT_NAME}_pgdata" for production:
@@ -53,12 +58,12 @@ Then remove the volume
 $ docker volume rm <volume_name>
 ```
 
-### 5 Start containers if stopped
+### 5. Start containers if stopped
 ```shell
 $ ./bin/up.sh
 ```
 
-### 6 Rebuild running containers (for production mode only)
+### 6. Rebuild running containers (for production mode only)
 If DB migrations are possible then:
 ```shell
 $ ./rebuild.sh
