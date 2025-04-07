@@ -1,0 +1,97 @@
+services:
+  postgres:
+    image: postgres:17.2-alpine
+    container_name: template-postgres-dev
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - pgdata_dev:/var/lib/postgresql/data/
+    ports:
+      - "5432:5432"
+    networks:
+      - main
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d svacerlab" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+    shm_size: 1gb
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 4G
+
+  backend:
+    image: backend-dev
+    container_name: template-backend-dev
+    build:
+      context: ./backend
+      dockerfile: docker/Dev.Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SQL_HOST: postgres
+    expose:
+      - 8000
+    networks:
+      - main
+    volumes:
+      - ./backend/:/app
+
+  manager:
+    image: manager-dev
+    container_name: template-manager-dev
+    build:
+      context: ./backend
+      dockerfile: docker/Dev.Dockerfile
+    command: python manage.py qcluster
+    depends_on:
+      - backend
+    environment:
+      SQL_HOST: postgres
+    networks:
+      - main
+    volumes:
+      - ./backend/:/app
+
+  frontend:
+    image: frontend-dev
+    container_name: template-frontend-dev
+    build:
+      context: ./frontend
+      dockerfile: docker/Dev.Dockerfile
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - main
+
+  nginx:
+    image: nginx:1.25
+    container_name: template-nginx-dev
+    volumes:
+      - ./nginx/dev:/etc/nginx/conf.d
+      - ./backend/logs:/app/logs
+    ports:
+      - "${WEB_PORT}:80"
+    depends_on:
+      - backend
+      - frontend
+    restart: always
+    networks:
+      - main
+
+volumes:
+  pgdata_dev:
+
+networks:
+  main:
+    driver: bridge

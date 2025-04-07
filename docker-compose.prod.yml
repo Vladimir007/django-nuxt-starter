@@ -1,0 +1,158 @@
+services:
+  postgres:
+    image: postgres:17.2-alpine
+    container_name: ${COMPOSE_PROJECT_NAME}-postgres
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=${SQL_USER}
+      - POSTGRES_PASSWORD_FILE=/run/secrets/pg_password
+    command:
+      - "postgres"
+      - "-c"
+      - "max_connections=50"
+      - "-c"
+      - "shared_buffers=512MB"
+      - "-c"
+      - "effective_cache_size=4GB"
+      - "-c"
+      - "work_mem=16MB"
+      - "-c"
+      - "maintenance_work_mem=512MB"
+      - "-c"
+      - "random_page_cost=1.1"
+      - "-c"
+      - "temp_file_limit=10GB"
+      - "-c"
+      - "log_min_duration_statement=200ms"
+      - "-c"
+      - "logging_collector=on"
+      - "-c"
+      - "idle_in_transaction_session_timeout=10s"
+      - "-c"
+      - "lock_timeout=1s"
+      - "-c"
+      - "statement_timeout=60s"
+      - "-c"
+      - "shared_preload_libraries=pg_stat_statements"
+      - "-c"
+      - "pg_stat_statements.max=10000"
+      - "-c"
+      - "pg_stat_statements.track=all"
+    volumes:
+      - pgdata:/var/lib/postgresql/data/
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${SQL_USER} -d svacerlab" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+    shm_size: 1gb
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+    secrets:
+      - pg_password
+    networks:
+      - main
+
+  backend:
+    image: backend
+    container_name: ${COMPOSE_PROJECT_NAME}-backend
+    build:
+      context: ./backend
+      dockerfile: docker/Prod.Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SECRET_KEY_FILE: /run/secrets/django_key
+      DEBUG: False
+      WEB_PORT: ${WEB_PORT}
+      SQL_HOST: postgres
+      SQL_USER: ${SQL_USER}
+      SQL_PASSWORD_FILE: /run/secrets/pg_password
+    expose:
+      - 8000
+    volumes:
+      - static:/app/static
+      - ./backend/logs:/app/logs
+      - ./backend/media:/app/media
+    secrets:
+      - django_key
+      - pg_password
+    networks:
+      - main
+
+  manager:
+    image: manager
+    container_name: ${COMPOSE_PROJECT_NAME}-manager
+    build:
+      context: ./backend
+      dockerfile: docker/Prod.Dockerfile
+    command: python manage.py qcluster
+    depends_on:
+      - backend
+    environment:
+      SECRET_KEY_FILE: /run/secrets/django_key
+      DEBUG: False
+      WEB_PORT: ${WEB_PORT}
+      SQL_HOST: postgres
+      SQL_USER: ${SQL_USER}
+      SQL_PASSWORD_FILE: /run/secrets/pg_password
+    volumes:
+      - static:/app/static
+      - ./backend/logs:/app/logs
+      - ./backend/media:/app/media
+    secrets:
+      - django_key
+      - pg_password
+    networks:
+      - main
+
+  frontend:
+    image: frontend
+    container_name: ${COMPOSE_PROJECT_NAME}-frontend
+    build:
+      context: ./frontend
+      dockerfile: docker/Prod.Dockerfile
+    volumes:
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - main
+
+  nginx:
+    image: nginx:1.25
+    container_name: ${COMPOSE_PROJECT_NAME}-nginx
+    volumes:
+      - ./nginx/prod:/etc/nginx/conf.d
+      - static:/app/static
+      - ./backend/media:/app/media
+      - ./backend/logs:/app/logs
+    ports:
+      - "${WEB_PORT}:80"
+    depends_on:
+      - backend
+      - frontend
+    restart: always
+    networks:
+      - main
+
+volumes:
+  pgdata:
+  static:
+
+secrets:
+  django_key:
+    file: ./secrets/key.txt
+  pg_password:
+    file: ./secrets/db.txt
+
+networks:
+  main:
+    name: ${COMPOSE_PROJECT_NAME}
+    driver: bridge

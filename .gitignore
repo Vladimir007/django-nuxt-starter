@@ -1,0 +1,10 @@
+*.py[cod]
+*$py.class
+__pycache__
+
+.idea
+
+*.mo
+
+.venv
+.env
