@@ -1,47 +1,34 @@
 // noinspection JSUnusedGlobalSymbols
 export default defineNuxtPlugin(() => {
-    const api = $fetch.create({
-        ignoreResponseError: true,
+  const unsafeMethods = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
 
-        onRequest({options}) {
-            const cookie = useRequestHeader('cookie')
-            options.headers.set('cookie', cookie)
-            const csrfToken = useCookie('csrftoken') || ''
-            if (csrfToken) {
-                options.headers.set('X-CSRFToken', csrfToken.value)
-            }
-        },
+  const api = $fetch.create({
+    onRequest({options}) {
+      const cookie = useRequestHeader('cookie')
+      options.headers.set('cookie', cookie)
 
-        async onResponse({response}) {
-            let isFailed: boolean;
-            const data = (response._data instanceof Object) ? response._data : {'detail': 'Unknown error'}
-
-            switch (response.status) {
-                case 200:
-                case 201:
-                    isFailed = false
-                    break;
-                case 404:
-                    isFailed = true;
-                    data.detail = 'Page not found'
-                    break;
-                case 401:
-                case 403:
-                    useAuthStore().setAuthenticated(false)
-                    useUserStore().setSelfInfo()
-                    isFailed = true;
-                    break;
-                default:
-                    isFailed = true;
-                    break;
-            }
-            response._data = {
-                failed: isFailed,
-                status: response.status,
-                data: data
-            }
+      if (unsafeMethods.has((options.method || 'GET').toUpperCase())) {
+        const csrfToken = useCookie('csrftoken') || ''
+        if (csrfToken) {
+          options.headers.set('X-CSRFToken', csrfToken.value)
         }
-    })
+      }
+    },
+    async onResponseError({ request, response }) {
+      switch (response.status) {
+        case 401:
+        case 403:
+          await useAuthStore().logout()
+          break;
+        default:
+          break;
+      }
 
-    return {provide: {api}}
+      if (response.headers.get("content-type") !== "application/json") {
+        response._data = {'detail': response.statusText}
+      }
+    }
+  })
+
+  return {provide: {api}}
 })

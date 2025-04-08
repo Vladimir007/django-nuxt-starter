@@ -37,6 +37,7 @@ services:
         condition: service_healthy
     environment:
       SQL_HOST: postgres
+      DJANGO_RUNSERVER_HIDE_WARNING: true
     expose:
       - 8000
     networks:

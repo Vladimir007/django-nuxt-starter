@@ -1,89 +1,74 @@
 import { defineStore } from 'pinia'
 
-interface AccountUpdateData {
-  first_name: string;
-  last_name: string;
-  password1?: string;
-  password2?: string;
-}
-
 // noinspection JSUnusedGlobalSymbols
-export const useAuthStore = defineStore('auth', {
-  state: () => ({
-    isAuthenticated: false
-  }),
-  actions: {
-    async login(credentials) {
-      const { $api } = useNuxtApp()
-      const response = await $api('/api/accounts/login/', {
-        method: 'POST',
-        body: credentials,
-      })
-      if (response.failed) {
-        return response
-      }
+export const useAuthStore = defineStore('auth', () => {
+  const user: Ref<IUser> = ref()
 
-      useUserStore().setSelfInfo(response.data)
-      this.setAuthenticated(true)
-      return response
-    },
+  const isAuthenticated: ComputedRef<boolean> = computed(() => !!user.value)
 
-    async logout() {
-      const { $api } = useNuxtApp()
-      await $api('/api/accounts/logout/', {method: 'POST'})
+  const userLabel: ComputedRef<string> = computed(() => (
+    user.value ? (user.value.first_name[0] + user.value.last_name[0]) : ""
+  ))
 
-      useUserStore().setSelfInfo()
-      this.setAuthenticated(false)
-    },
+  function setUser(data?: IUser) {
+    user.value = data
+  }
 
-    async register(data) {
-      const { $api } = useNuxtApp()
-      const response = await $api('/api/accounts/account/', {
-        method: 'POST',
-        body: data,
-      })
+  async function fetchUser() {
+    await useNuxtApp().$api('/api/accounts/account/').then((data) => {
+      setUser(data)
+    }).catch(() => {})
+  }
 
-      if (!response.failed) {
-        await navigateTo(
-          {
-            path: '/auth/login',
-            query: {
-              new: true
-            }
-          },
-          {
-            redirectCode: 301,
+  async function login(data: ICredentials) {
+    return await useNuxtApp().$api('/api/accounts/login/', {
+      method: 'POST',
+      body: data,
+    }).then(async (data) => {
+      const route = useRoute()
+      setUser(data)
+      await navigateTo(route.query.next || '/', {replace: true})
+    }).catch(error => error.data.detail)
+  }
+
+  async function logout() {
+    await useNuxtApp().$api('/api/accounts/logout/', {method: 'POST', ignoreResponseError: true})
+    setUser()
+    useRouter().go(0)
+  }
+
+  async function register(data: IRegistrationForm) {
+    return await useNuxtApp().$api('/api/accounts/account/', {
+      method: 'POST',
+      body: data,
+    }).then(async () => {
+      await navigateTo(
+        {
+          path: '/auth/login',
+          query: {
+            new: true
           }
-        )
-        return {}
-      }
-      return response.data
-    },
+        },
+        {
+          replace: true
+        }
+      )
+    }).catch((error) => error.data)
+  }
 
-    async update(data: AccountUpdateData) {
-      const { $api } = useNuxtApp()
-      const requestBody = {
-        email: data.email,
-        first_name: data.first_name,
-        last_name: data.last_name,
-      }
-      if (data.password1 || data.password2) {
-        requestBody.password1 = data.password1
-        requestBody.password2 = data.password2
-      }
-      const response = await $api('/api/accounts/account/', {
-        method: 'PATCH',
-        body: requestBody,
-      })
-
-      if (!response.failed) {
-        await useUserStore().fetchSelfInfo()
-      }
-      return response
-    },
-
-    setAuthenticated(value: boolean) {
-      this.isAuthenticated = value
+  async function updateUser(data: IUpdateProfileForm) {
+    const requestBody: IUpdateProfileForm = {...data}
+    if (!requestBody.password1 && !requestBody.password2) {
+      delete requestBody.password1
+      delete requestBody.password2
     }
+    return await useNuxtApp().$api('/api/accounts/account/', {
+      method: 'PATCH',
+      body: requestBody,
+    }).then(async () => {await fetchUser()}).catch(error => error.data)
+  }
+
+  return {
+    user, isAuthenticated, userLabel, fetchUser, login, logout, register, updateUser
   }
 })

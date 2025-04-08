@@ -6,12 +6,12 @@ definePageMeta({
 const toast = useToast()
 
 const loading = ref(false)
-const userInfo = useUserStore()
+const authStore = useAuthStore()
 
 const formData = reactive({
-  email: userInfo.email,
-  first_name: userInfo.first_name,
-  last_name: userInfo.last_name,
+  email: authStore.user.email,
+  first_name: authStore.user.first_name,
+  last_name: authStore.user.last_name,
   password1: "",
   password2: "",
 })
@@ -20,14 +20,10 @@ const formErrors = ref(null)
 
 const handleSubmit = async () => {
   loading.value = true
-  formErrors.value = null
-  const response = await useAuthStore().update(formData)
-  if (response.failed) {
-    formErrors.value = response.data
-    if (formErrors.value.detail) {
-      toast.add({ severity: 'error', summary: 'Error', detail: formErrors.value.detail })
-    }
-  } else {
+  formErrors.value = await authStore.updateUser(formData)
+  if (formErrors.value?.detail) {
+    toast.add({ severity: 'error', summary: 'Error', detail: formErrors.value.detail })
+  } else if (!formErrors.value) {
     toast.add({ severity: 'success', summary: 'Success', detail: "Profile was successfully updated", life: 2000 })
   }
   loading.value = false

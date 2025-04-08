@@ -1,9 +1,9 @@
 <!--suppress VueUnrecognizedDirective -->
 <script setup lang="ts">
-const userInfo = useUserStore()
-const { logout } = useAuthStore()
-const { isDarkMode, toggleDarkMode } = useTheme()
+
 const toast = useToast()
+const { isDarkMode, toggleDarkMode } = useTheme()
+const authStore = useAuthStore()
 
 const navItems = [
   {
@@ -16,18 +16,18 @@ const navItems = [
     icon: 'pi pi-play',
     command: async () => {
       const { $api } = useNuxtApp()
-      const { failed, data } = await $api('/api/accounts/test/', {method: "POST"})
-      if (failed) {
-        toast.add({ severity: 'error', summary: 'Error', detail: "Test request finished with error" })
-      }
-      else {
+      const data = await $api('/api/accounts/test/', {method: "POST"}).catch(({ data }) => {
+        toast.add({ severity: 'error', summary: 'Error', detail: data.detail || "Test request finished with error" })
+        return null
+      })
+      if (data) {
         toast.add({ severity: 'success', summary: 'Success', detail: data.detail, life: 2000 })
       }
     }
   },
 ]
 
-if (userInfo.is_staff) {
+if (authStore.user.is_staff) {
   navItems.push({
     label: 'Admin page',
     icon: 'pi pi-database',
@@ -47,7 +47,7 @@ const userMenuItems = ref([
     label: "Logout",
     icon: "pi pi-sign-out",
     command: async () => {
-      await logout()
+      await authStore.logout()
     }
   }
 ])
@@ -81,11 +81,11 @@ const showUserMenu = (event) => {
 
   <Menu ref="userMenu" id="user_menu" :model="userMenuItems" :popup="true">
     <template #start>
-      <span class="w-full flex items-start gap-1 p-4 pr-8">
-        <Avatar :label="userInfo.label" class="mr-2" size="large" shape="circle" />
-        <span class="inline-flex flex-col items-start">
-          <span class="font-bold">{{ userInfo.first_name }} {{ userInfo.last_name }}</span>
-          <span class="text-sm">{{ userInfo.email }}</span>
+      <span class="w-full flex p-4 pr-8">
+        <Avatar :label="authStore.userLabel" class="mr-3 bg-violet-200! dark:bg-violet-900!" size="large" shape="circle" />
+        <span class="flex flex-col">
+          <span class="font-bold">{{ authStore.user.first_name }} {{ authStore.user.last_name }}</span>
+          <span class="text-sm italic">{{ authStore.user.email }}</span>
         </span>
       </span>
     </template>
@@ -93,7 +93,7 @@ const showUserMenu = (event) => {
       <NuxtLink v-if="item.route" v-slot="{ href, navigate }" :to="item.route" custom>
           <a class="flex items-center" v-bind="props.action" :href="href" @click="navigate">
               <span :class="item.icon" />
-              <span class="ml-2">{{ item.label }}</span>
+              <span>{{ item.label }}</span>
           </a>
       </NuxtLink>
       <a v-else class="flex items-center" v-bind="props.action">

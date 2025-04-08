@@ -5,9 +5,9 @@ definePageMeta({
 
 const toast = useToast()
 
-const loading = ref(false)
+const loading: Ref<boolean> = ref(false)
 
-const formData = reactive({
+const formData: Reactive<IRegistrationForm> = reactive({
   email: "",
   first_name: "",
   last_name: "",
@@ -15,15 +15,13 @@ const formData = reactive({
   password2: "",
 })
 
-const formErrors = ref(null)
+const formErrors = ref()
 
 const handleSubmit = async () => {
   loading.value = true
-  formErrors.value = null
-  const errors = await useAuthStore().register(formData)
-  formErrors.value = errors
-  if (errors.detail) {
-    toast.add({ severity: 'error', summary: 'Error', detail: errors.detail })
+  formErrors.value = await useAuthStore().register(formData)
+  if (formErrors.value?.detail) {
+    toast.add({ severity: 'error', summary: 'Error', detail: formErrors.value.detail })
   }
   loading.value = false
 }

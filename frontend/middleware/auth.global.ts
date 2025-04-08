@@ -1,18 +1,13 @@
 // noinspection JSUnusedGlobalSymbols
-export default defineNuxtRouteMiddleware(async (to, from) => {
+export default defineNuxtRouteMiddleware((to) => {
     let toPath = to.path
     if (toPath !== '/' && toPath.endsWith('/')) {
         toPath = toPath.replace(/\/+$/, '') || '/';
     }
 
-    const userStore = useUserStore()
-    if (!userStore.loaded && useCookie('sessionid').value) {
-        await userStore.fetchSelfInfo()
-    }
-
     const authStore = useAuthStore()
     if (authStore.isAuthenticated && (toPath === '/auth/login' || toPath === '/auth/register')) {
-        return navigateTo('/')
+        return navigateTo('/', {replace: true})
     }
     if (!authStore.isAuthenticated && toPath !== '/auth/login' && toPath !== '/auth/register') {
         return navigateTo({
@@ -20,6 +15,6 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
             query: {
                 next: to.fullPath
             }
-        })
+        }, {replace: true})
     }
 })
