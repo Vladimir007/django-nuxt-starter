@@ -1,4 +1,5 @@
 services:
+
   postgres:
     image: postgres:17.2-alpine
     container_name: template-postgres-dev

@@ -1,4 +1,5 @@
 services:
+
   postgres:
     image: postgres:17.2-alpine
     container_name: ${COMPOSE_PROJECT_NAME}-postgres
@@ -148,9 +149,9 @@ volumes:
 
 secrets:
   django_key:
-    file: ./secrets/key.txt
+    file: secrets/key.txt
   pg_password:
-    file: ./secrets/db.txt
+    file: secrets/db.txt
 
 networks:
   main:
